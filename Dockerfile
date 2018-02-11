@@ -7,7 +7,8 @@ RUN rpm --import https://archive.cloudera.com/cdh5/redhat/5/x86_64/cdh/RPM-GPG-K
 RUN yum install -y sudo \
     hadoop-hdfs-namenode hadoop-hdfs-datanode \
     postgresql hive hive-jdbc hive-metastore \
-    impala impala-server impala-shell impala-catalog impala-state-store
+    impala impala-server impala-shell impala-catalog impala-state-store \
+    unixODBC unixODBC-devel
 RUN yum clean all
 
 RUN mkdir -p /var/run/hdfs-sockets; \
@@ -16,6 +17,8 @@ RUN mkdir -p /data/dn/
 RUN chown hdfs.hadoop /data/dn
 
 RUN wget https://jdbc.postgresql.org/download/postgresql-9.4.1209.jre7.jar -O /usr/lib/hive/lib/postgresql-9.4.1209.jre7.jar
+RUN wget https://downloads.cloudera.com/connectors/impala_odbc_2.5.41.1029/Linux/EL7/ClouderaImpalaODBC-2.5.41.1029-1.el7.x86_64.rpm
+RUN rpm -ivh ClouderaImpalaODBC-2.5.41.1029-1.el7.x86_64.rpm
 
 RUN groupadd supergroup; \
     usermod -a -G supergroup impala; \
@@ -26,6 +29,9 @@ RUN groupadd supergroup; \
 WORKDIR /
 
 ADD etc/supervisord.conf /etc/
+ADD etc/odbc.ini /etc/
+ADD etc/odbcinst.ini /etc/
+ADD etc/cloudera.impalaodbc.ini /etc/
 ADD etc/core-site.xml /etc/hadoop/conf/
 ADD etc/hdfs-site.xml /etc/hadoop/conf/
 ADD etc/hive-site.xml /etc/hive/conf/
@@ -48,5 +54,11 @@ EXPOSE 9083
 
 # Impala
 EXPOSE 21000 21050 22000 23000 24000 25010 26000 28000
+
+ENV ODBCSYSINI /etc
+ENV ODBCINI /etc/odbc.ini
+ENV CLOUDERAIMPALAODBCINI /etc/cloudera.impalaodbc.ini
+ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/usr/lib64:/lib64:/opt/cloudera/impalaodbc/lib/64
+ENV LD_PRELOAD /usr/lib64/libodbcinst.so
 
 ENTRYPOINT ["supervisord", "-c", "/etc/supervisord.conf", "-n"]
